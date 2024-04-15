@@ -178,7 +178,7 @@ def jump(n, i, j):
     
     if i != j:
         print('binary=', n)
-        if (n[i] == 1 and n[j] == 1):
+        if (n[j] == 1 and n[i] == 1):
             a = n_to_bin(n)
             exponent_i = np.sum(n[0:i-1])
             exponent_j = np.sum(n[0:i])      #adding 1 for j=i+1
@@ -187,13 +187,13 @@ def jump(n, i, j):
             return a - 2 ** i , (-1) ** exponent_i , a - 2 ** j, (-1) ** (exponent_j)
     
         
-        elif (n[i] == 1 and n[j] == 0):
+        elif (n[j] == 1 and n[i] == 0):
             a = n_to_bin(n)
             exponent_i = np.sum(n[0:i-1])
             exponent_j = np.sum(n[0:i])      #adding 1 for j=i+1
             print('exponent_i', exponent_i)
             print('exponent_j', exponent_j)
-            return a - 2 ** i , (-1) ** exponent_i , a + 2 ** j, (-1) ** (exponent_j)
+            return a + 2 ** i , (-1) ** exponent_i , a - 2 ** j, (-1) ** (exponent_j)
         
     else:
         return None
@@ -284,18 +284,18 @@ class SuperOperator:
                     print(f"j: {j}")
                     pass
             
-            plt.matshow(np.real(L_jump))
+            #plt.matshow(np.real(L_jump))
             
              # building the super-operator for site i               
             L_jump_dagger = np.conj(np.transpose(L_jump))
                 
             L_super[i,:,:] = np.kron(L_jump, np.conj(L_jump)) - 1/2*np.kron(np.dot(L_jump_dagger,L_jump), Id) - 1/2*np.kron(Id, np.conj(np.dot(L_jump_dagger,L_jump)))
             
-            plt.matshow(np.real(L_super[i,:,:]))
+            #plt.matshow(np.real(L_super[i,:,:]))
             #print('L_super_i', L_super[i,:,:])
             
         #Summing over all i to get the final Super-operator
-        plt.matshow(np.real(np.sum(L_super, axis=0)))
+        #plt.matshow(np.real(np.sum(L_super, axis=0)))
         
         # Multiplying the super-operator with \kappa0 as in Topol Quantum wire paper (DOI: 10.1038/NPHYS2106)
         L_super = kappa0 * np.sum(L_super, axis=0)
@@ -360,11 +360,8 @@ class IsingMajorana:
         #setting up the specific string of random numbers
         self.disorder = np.random.RandomState(seed)
         # random.uniform(low=0.0, high=1.0, size=None): all values between [0,1) are equally likely
-        #self.disXX = self.XX * self.disorder.uniform(0, np.exp(0.5 * self.delta), size=self.L)
-        #self.disZ = self.Z * self.disorder.uniform(0, np.exp(-0.5 * self.delta), size=self.L)
-        
-        self.disXX = self.XX * self.disorder.uniform(0, np.exp(-2 * self.delta), size=self.L)
-        self.disZ = self.Z * self.disorder.uniform(0, np.exp(-2 * self.delta), size=self.L)
+        self.disXX = self.XX * self.disorder.uniform(0, np.exp(0.5 * self.delta), size=self.L)
+        self.disZ = self.Z * self.disorder.uniform(0, np.exp(-0.5 * self.delta), size=self.L)
 
 
     def clean_realization(self):
