@@ -260,25 +260,22 @@ class SuperOperator:
 
                 # OBS factor 1/2 is from the Quantum wire paper
                 try:
-                    # get the binary state and the phase of the jump operator
-                    a_i, h_i, a_j, h_j  = jump(n, i, j)
+                   # get the binary state and the phase of the jump operator
+                   a_i, h_i, a_j, h_j  = jump(n, i, j)
 
-                    print('a_i', a_i)
-                    print('a_j', a_j)
-                    print('h_i', h_i)
-                    print('h_j', h_j)
-                    
-                    # assign values to the correct location in the Hilbert space
-                    if n[j] == 1:
-                        L_jump[a_i, r] += 1/2 * h_i
-                        L_jump[r, a_i] += 1/2 * np.conj(h_i)
-                        L_jump[a_j, r] += -1/2 * h_j            #OBS there is a minus in front of a_i+1 in Topol Quantum wire paper (DOI: 10.1038/NPHYS2106)
-                        L_jump[r, a_j] += 1/2 * np.conj(h_j)
-                    else:
-                        L_jump[a_i, r] += 1/2 * h_i
-                        L_jump[r, a_i] += 1/2 * np.conj(h_i)
-                        L_jump[a_j, r] += 1/2 * h_j 
-                        L_jump[r, a_j] += -1/2 * np.conj(h_j)   #OBS there is a minus in front of a_i+1 in Topol Quantum wire paper (DOI: 10.1038/NPHYS2106)
+                   print('a_i', a_i)
+                   print('a_j', a_j)
+                   print('h_i', h_i)
+                   print('h_j', h_j)
+                   
+                   # assign values to the correct location in the Hilbert space
+                   if n[j] == 1:
+                       L_jump[a_i, r] += 1/2 * h_i
+                       L_jump[a_j, r] += -1/2 * h_j            #OBS there is a minus in front of a_i+1 in Topol Quantum wire paper (DOI: 10.1038/NPHYS2106)
+                       
+                       L_jump[r, a_i] += 1/2 * np.conj(h_i)                    
+                       L_jump[r, a_j] += 1/2 * np.conj(h_j)
+
                        
                 except TypeError as e:
                     print(f"TypeError occurred: {e}")
@@ -287,18 +284,18 @@ class SuperOperator:
                     print(f"j: {j}")
                     pass
             
-            #plt.matshow(np.real(L_jump))
+            plt.matshow(np.real(L_jump))
             
              # building the super-operator for site i               
             L_jump_dagger = np.conj(np.transpose(L_jump))
                 
             L_super[i,:,:] = np.kron(L_jump, np.conj(L_jump)) - 1/2*np.kron(np.dot(L_jump_dagger,L_jump), Id) - 1/2*np.kron(Id, np.conj(np.dot(L_jump_dagger,L_jump)))
             
-            #plt.matshow(np.real(L_super[i,:,:]))
+            plt.matshow(np.real(L_super[i,:,:]))
             #print('L_super_i', L_super[i,:,:])
             
         #Summing over all i to get the final Super-operator
-        #plt.matshow(np.real(np.sum(L_super, axis=0)))
+        plt.matshow(np.real(np.sum(L_super, axis=0)))
         
         # Multiplying the super-operator with \kappa0 as in Topol Quantum wire paper (DOI: 10.1038/NPHYS2106)
         L_super = kappa0 * np.sum(L_super, axis=0)
@@ -363,8 +360,11 @@ class IsingMajorana:
         #setting up the specific string of random numbers
         self.disorder = np.random.RandomState(seed)
         # random.uniform(low=0.0, high=1.0, size=None): all values between [0,1) are equally likely
-        self.disXX = self.XX * self.disorder.uniform(0, np.exp(0.5 * self.delta), size=self.L)
-        self.disZ = self.Z * self.disorder.uniform(0, np.exp(-0.5 * self.delta), size=self.L)
+        #self.disXX = self.XX * self.disorder.uniform(0, np.exp(0.5 * self.delta), size=self.L)
+        #self.disZ = self.Z * self.disorder.uniform(0, np.exp(-0.5 * self.delta), size=self.L)
+        
+        self.disXX = self.XX * self.disorder.uniform(0, np.exp(-2 * self.delta), size=self.L)
+        self.disZ = self.Z * self.disorder.uniform(0, np.exp(-2 * self.delta), size=self.L)
 
 
     def clean_realization(self):
