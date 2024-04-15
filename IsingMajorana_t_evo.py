@@ -42,6 +42,8 @@ show = args.show                    # If True, the disorder averaged local infor
 t_max = args.t_max                  # Time for the real time evolution
 dt = args.dt                        # Time step for the real time evolution
 
+clean = args.clean                  # If True, no disorder is present in the chain. If False, disorder introduced to Z and XX
+
 theta = args.dissipation_th         # Dissipation parameter theta for kappa0 = kappa*cos(theta)
 kappa = args.dissipation_k          # Dissipation parameter kappa for kappa0 = kappa*cos(theta)
 
@@ -76,7 +78,12 @@ print(chain)
 for count, s in enumerate(range(seed, seed + N_rep)):
     print('Disorder realisation: {}/{}'.format(count + 1, N_rep))
     
-    chain.new_disorder_realization(s)
+    if clean == 'False':
+        chain.new_disorder_realization(s)
+    elif clean == 'True':
+        chain.clean_realization()
+    else:
+        raise ValueError('Clean must be "True" or "False"')
 
     H_full = chain.calc_noparity_Hamiltonian(bc=BC) 
     eigvals, psi_eigvec = eigsh(H_full, k=k_eigs, sigma=0, which='LM')
@@ -84,8 +91,8 @@ for count, s in enumerate(range(seed, seed + N_rep)):
 ############################################################
 '     -setting initial wavefunction-    '
 
-#psi_full = np.loadtxt('psi_L6_topol.txt')
-psi_full = psi_eigvec
+psi_full = np.loadtxt('psi_L6_random.txt')
+#psi_full = psi_eigvec
 
 print('psi_full', psi_full)
 
@@ -96,8 +103,8 @@ Idt = np.eye(int(2**L)) #Identity operator of the needed dimension to build Lind
 
 if system_type == 'open':
     operator = SuperOperator(L=L, theta=theta, kappa=kappa)
-    Lndbld = -1j * (np.kron(H_full, Idt) - np.kron(Idt, np.conj(H_full))) + operator.calc_L_super(bc=BC, theta=theta, kappa=kappa)   
-    #Lndbld =  operator.calc_L_super(bc=BC, theta=theta, kappa=kappa) 
+    #Lndbld = -1j * (np.kron(H_full, Idt) - np.kron(Idt, np.conj(H_full))) + operator.calc_L_super(bc=BC, theta=theta, kappa=kappa)   
+    Lndbld =  operator.calc_L_super(bc=BC, theta=theta, kappa=kappa) 
 elif system_type == 'closed':
     Lndbld = -1j * (np.kron(H_full, Idt) - np.kron(Idt, np.conj(H_full))) 
 else:

@@ -303,8 +303,8 @@ def calc_info_lndbld(rho_vec):
 
     '''
 
-    #assert len(rho_vec.shape) == 1
-    assert rho_vec.shape[1] == 1
+    assert len(rho_vec.shape) == 1
+    #assert rho_vec.shape[1] == 1
     L = int(np.log2(rho_vec.size))//2
     SvN = calc_entropies_lndbld(rho_vec)
     
