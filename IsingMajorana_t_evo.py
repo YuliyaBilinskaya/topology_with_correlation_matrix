@@ -86,16 +86,19 @@ for count, s in enumerate(range(seed, seed + N_rep)):
         raise ValueError('Clean must be "True" or "False"')
 
     H_full = chain.calc_noparity_Hamiltonian(bc=BC) 
-    eigvals, psi_eigvec = eigsh(H_full, k=k_eigs, sigma=0, which='LM')
+    #eigvals, psi_eigvec = eigsh(H_full, k=k_eigs, sigma=0, which='LM', v0 = np.ones(2**L))
+    eigvals, psi_eigvec = eigh(H_full)
 
 ############################################################
 '     -setting initial wavefunction-    '
 
-psi_full = np.loadtxt('psi_L6_random.txt')
-#psi_full = psi_eigvec
+# Index for the smallest positive eigenvalue around zero, i.e. the ground state
+idx = int(2**L/2)
 
-print('psi_full', psi_full)
+#psi_full = np.loadtxt('psi_L6_triv.txt')
+psi_full = psi_eigvec[:,idx]
 
+#print('psi_full', psi_full)
 ###########################################################
     
 
@@ -103,8 +106,8 @@ Idt = np.eye(int(2**L)) #Identity operator of the needed dimension to build Lind
 
 if system_type == 'open':
     operator = SuperOperator(L=L, theta=theta, kappa=kappa)
-    #Lndbld = -1j * (np.kron(H_full, Idt) - np.kron(Idt, np.conj(H_full))) + operator.calc_L_super(bc=BC, theta=theta, kappa=kappa)   
-    Lndbld =  operator.calc_L_super(bc=BC, theta=theta, kappa=kappa) 
+    Lndbld = -1j * (np.kron(H_full, Idt) - np.kron(Idt, np.conj(H_full))) + operator.calc_L_super(bc=BC, theta=theta, kappa=kappa)   
+    #Lndbld =  operator.calc_L_super(bc=BC, theta=theta, kappa=kappa) 
 elif system_type == 'closed':
     Lndbld = -1j * (np.kron(H_full, Idt) - np.kron(Idt, np.conj(H_full))) 
 else:
@@ -117,7 +120,7 @@ else:
 # rho = np.outer(np.conj(psi_full), psi_full)
 # rho_vec = np.transpose(rho).reshape(len(psi_full)**2,1)
 # =============================================================================
-# Option 1: by row
+# Option 2: by row
 rho_vec = np.kron(psi_full, np.conj(psi_full))
 
 
@@ -129,7 +132,7 @@ for c in np.arange(time_steps):
     
     print('t=', t)
     
-    save_dir = 'results/MBL/BC_{0}/Syst_{1}/L{2}/k_even/seed{3}/N_rep{4}/g{5}/delta{6}/t{7}'.format(*(BC,system_type, L, seed, N_rep, g, delta, t))
+    save_dir = 'results/MBL/BC_{0}/Syst_{1}/L{2}/k_even/seed{3}/N_rep{4}/g{5}/delta{6}/t{7}'.format(*(BC, system_type, L, seed, N_rep, g, delta, t))
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     file_name = 'data'
@@ -278,14 +281,14 @@ for c in np.arange(time_steps):
             # for count_datum, datum in enumerate(dataPBC[key]):
             # plt.plot(scales, datum, color=colors(count_datum))
     
-        ax1.set_title("Ising-Majorana; " + BC +  " BC; " + system_type + " syst (full Lndbl); L=%d; delta=%d; J=%d; h=%d; g=%.1f; dis.real.=%d; t=%.2f" % (L, delta, XX, Z, g, N_rep, t))
+        ax1.set_title("Ising-Majorana; " + BC +  " BC; " + system_type + " system; L=%d; delta=%d; J=%d; h=%d; g=%.1f; dis.real.=%d; t=%.2f" % (L, delta, XX, Z, g, N_rep, t))
         ax1.set_ylabel(r"$i^\ell$")
         ax1.set_ylim([0, L])
         ax1.set_xlabel(r"$\ell$")
         ax1.legend()
         plt.savefig(save_dir + ".pdf", dpi=200)
     
-        plt.show()
+    plt.show()
     
     #plotting the circle diagram    
     #infoLattice.plot_info_latt(infoLattice.calc_info_lndbld(rho_vec))
