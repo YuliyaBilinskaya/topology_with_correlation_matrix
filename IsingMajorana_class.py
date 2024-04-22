@@ -312,7 +312,7 @@ class SuperOperator:
         #Summing over all i to get the final Super-operator
         #plt.matshow(np.real(np.sum(L_super, axis=0)))
         
-        # Multiplying the super-operator with \kappa0 as in Topol Quantum wire paper (DOI: 10.1038/NPHYS2106)
+        # Multiplying the super-operator with \kappa0 as in Topol by dissipartion paper (DOI: 10.1038/NPHYS2106)
         L_super = kappa0 * np.sum(L_super, axis=0)
         #print('L_super', L_super)          
     
@@ -375,12 +375,15 @@ class IsingMajorana:
         #setting up the specific string of random numbers
         self.disorder = np.random.RandomState(seed)
         # random.uniform(low=0.0, high=1.0, size=None): all values between [0,1) are equally likely
-        #self.disXX = self.XX * self.disorder.uniform(0, np.exp(0.5 * self.delta), size=self.L)
-        #self.disZ = self.Z * self.disorder.uniform(0, np.exp(-0.5 * self.delta), size=self.L)
-        
-        
-        self.disXX = self.XX * np.ones(self.L)
+        self.disXX = self.XX * self.disorder.uniform(0, np.exp(0.5 * self.delta), size=self.L)
         self.disZ = self.Z * self.disorder.uniform(0, np.exp(-0.5 * self.delta), size=self.L)
+        
+        # special case to reproduce results of Topol by dissipartion paper (DOI: 10.1038/NPHYS2106)
+        # disporder is only in \mu and has to be \mu << pi/4
+# =============================================================================
+#         self.disXX = self.XX * np.ones(self.L)
+#         self.disZ = self.Z * self.disorder.uniform(0, np.exp(-0.5 * self.delta), size=self.L)
+# =============================================================================
 
 
     def clean_realization(self):
