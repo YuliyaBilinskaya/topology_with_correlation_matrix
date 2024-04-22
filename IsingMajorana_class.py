@@ -122,6 +122,9 @@ def hopping(n, i, j):
     elif n[i] == 0 and n[j] == 1:
         a = n_to_bin(n) 
         exponent = np.sum(n[min(i, j) + 1: max(i, j)]) 
+        print('n', n)
+        print('hopping exponent', exponent)
+        print('(-1) ** exponent', (-1) ** exponent)
         return a + 2 ** i - 2 ** j, (-1) ** exponent 
     else:
         return None
@@ -177,23 +180,39 @@ def jump(n, i, j):
     """
     
     if i != j:
-        print('binary=', n)
-        if (n[j] == 1 and n[i] == 1):
+        #print('i=', i)
+        #print('j=', j)
+        #print('binary=', n)
+        if n[i] == 1:
             a = n_to_bin(n)
-            exponent_i = np.sum(n[0:i-1])
-            exponent_j = np.sum(n[0:i])      #adding 1 for j=i+1
-            print('exponent_i', exponent_i)
-            print('exponent_j', exponent_j)
-            return a - 2 ** i , (-1) ** exponent_i , a - 2 ** j, (-1) ** (exponent_j)
+            exponent_i = np.sum(n[0:i])   
+            #print('exponent_i', exponent_i)
+            a_i =  a - 2 ** i
+            phase_i = (-1) ** exponent_i
+        
+        elif n[i] == 0:
+            a = n_to_bin(n)
+            exponent_i = np.sum(n[0:i])            
+            #print('exponent_i', exponent_i)
+            a_i =  a + 2 ** i 
+            phase_i = (-1) ** exponent_i
     
         
-        elif (n[j] == 1 and n[i] == 0):
+        if n[j] == 1:
             a = n_to_bin(n)
-            exponent_i = np.sum(n[0:i-1])
-            exponent_j = np.sum(n[0:i])      #adding 1 for j=i+1
-            print('exponent_i', exponent_i)
-            print('exponent_j', exponent_j)
-            return a + 2 ** i , (-1) ** exponent_i , a - 2 ** j, (-1) ** (exponent_j)
+            exponent_j = np.sum(n[0:j])+1      #adding 1 due to a minus in front of a_i+1 in Topol Quantum wire paper (DOI: 10.1038/NPHYS2106)
+            #print('exponent_j', exponent_j)
+            a_j =  a - 2 ** j
+            phase_j = (-1) ** (exponent_j)
+        
+        elif n[j] == 0:
+            a = n_to_bin(n)
+            exponent_j = np.sum(n[0:j]) 
+            #print('exponent_j', exponent_j)
+            a_j =  a + 2 ** j
+            phase_j = (-1) ** (exponent_j)
+            
+        return a_i, phase_i, a_j, phase_j
         
     else:
         return None
@@ -245,7 +264,7 @@ class SuperOperator:
         
         # Nearest-neighbor terms
         for i in range(Lhop):
-            print('i', i)
+            #print('i', i)
             L_jump = np.zeros((dim, dim))
             
             if bc == 'periodic':
@@ -256,32 +275,28 @@ class SuperOperator:
             for r in range(dim):      
                 n = bin_to_n(r, L)
                 #YB: buiding a single jump operator for site i
-                print('r', r)
+                #print('r', r)
 
                 # OBS factor 1/2 is from the Quantum wire paper
                 try:
                    # get the binary state and the phase of the jump operator
                    a_i, h_i, a_j, h_j  = jump(n, i, j)
 
-                   print('a_i', a_i)
-                   print('a_j', a_j)
-                   print('h_i', h_i)
-                   print('h_j', h_j)
+                   #print('a_i', a_i)
+                   #print('a_j', a_j)
+                   #print('h_i', h_i)
+                   #print('h_j', h_j)
                    
                    # assign values to the correct location in the Hilbert space
-                   if n[j] == 1:
-                       L_jump[a_i, r] += 1/2 * h_i
-                       L_jump[a_j, r] += -1/2 * h_j            #OBS there is a minus in front of a_i+1 in Topol Quantum wire paper (DOI: 10.1038/NPHYS2106)
-                       
-                       L_jump[r, a_i] += 1/2 * np.conj(h_i)                    
-                       L_jump[r, a_j] += 1/2 * np.conj(h_j)
+                   L_jump[a_i, r] += 1/2 * h_i
+                   L_jump[a_j, r] += 1/2 * h_j            
 
                        
                 except TypeError as e:
-                    print(f"TypeError occurred: {e}")
-                    print(f"n: {n}")
-                    print(f"i: {i}")
-                    print(f"j: {j}")
+                    #print(f"TypeError occurred: {e}")
+                    #print(f"n: {n}")
+                    #print(f"i: {i}")
+                    #print(f"j: {j}")
                     pass
             
             #plt.matshow(np.real(L_jump))
@@ -360,7 +375,11 @@ class IsingMajorana:
         #setting up the specific string of random numbers
         self.disorder = np.random.RandomState(seed)
         # random.uniform(low=0.0, high=1.0, size=None): all values between [0,1) are equally likely
-        self.disXX = self.XX * self.disorder.uniform(0, np.exp(0.5 * self.delta), size=self.L)
+        #self.disXX = self.XX * self.disorder.uniform(0, np.exp(0.5 * self.delta), size=self.L)
+        #self.disZ = self.Z * self.disorder.uniform(0, np.exp(-0.5 * self.delta), size=self.L)
+        
+        
+        self.disXX = self.XX * np.ones(self.L)
         self.disZ = self.Z * self.disorder.uniform(0, np.exp(-0.5 * self.delta), size=self.L)
 
 
@@ -400,6 +419,9 @@ class IsingMajorana:
         L = self.L
         dim = 2 ** L
         H = np.zeros((dim, dim))
+        
+        print('self.disXX=', self.disXX)
+        print('disZ=', self.disZ)
 
         # Boundary conditions
         if bc == 'periodic':
@@ -426,7 +448,8 @@ class IsingMajorana:
             # Diagonal term from onsite random field: h_i(2n_i - 1)
             for i in range(L):
                 H[r, r] -= self.disZ[i] * onsite_field(n, i)
-
+            #print('n=', n)
+            #print('H[r,r]=', H[r, r])
             # Nearest-neighbor terms
             for i in range(Lhop):
                 if bc == 'periodic':
@@ -440,16 +463,23 @@ class IsingMajorana:
                 # Hopping term
                 try:
                     b, h = hopping(n, i, j)
-                    ht = h * self.disXX[i]  
+                    ht = h * self.disXX[i]
+                    print('h', h)
+                    print('ht', ht)
                     H[b, r] += ht
                     H[r, b] += np.conjugate(ht)
-                except TypeError:
+                except TypeError as e:
+                    print(f"TypeError occurred: {e}")
+                    print(f"n: {n}")
+                    print(f"i: {i}")
+                    print(f"j: {j}")
                     pass
 
                 # Pairing term
                 try:
                     b, h = pairing(n, i, j)
-                    hp = h * self.disXX[i]  
+                    hp = h * self.disXX[i] 
+                    print('hp', hp)
                     H[b, r] += hp
                     H[r, b] += np.conjugate(hp)
                 except TypeError:
