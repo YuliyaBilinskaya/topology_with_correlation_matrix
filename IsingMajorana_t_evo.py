@@ -91,12 +91,13 @@ for count, s in enumerate(range(seed, seed + N_rep)):
 
 ############################################################
 '     -setting initial wavefunction-    '
+print('eigvals', eigvals)
+# Index for the the ground state = 0
+#idx = int(2**L/2)
+psi_full = psi_eigvec[:,0]
 
-# Index for the smallest positive eigenvalue around zero, i.e. the ground state
-idx = int(2**L/2)
+#psi_full = np.loadtxt('psi_L4_topol.txt')
 
-#psi_full = np.loadtxt('psi_L6_triv.txt')
-psi_full = psi_eigvec[:,idx]
 
 #print('psi_full', psi_full)
 ###########################################################
@@ -112,6 +113,9 @@ elif system_type == 'closed':
     Lndbld = -1j * (np.kron(H_full, Idt) - np.kron(Idt, np.conj(H_full))) 
 else:
     raise ValueError('system type must be "open" or "closed"')
+
+# non-unitary operator for the time evolution with Lindblad    
+non_unitary = expm(Lndbld*dt)
 
 
 '     -Vectorizing rho-      '
@@ -132,7 +136,7 @@ for c in np.arange(time_steps):
     
     print('t=', t)
     
-    save_dir = 'results/MBL/BC_{0}/Syst_{1}/L{2}/k_even/seed{3}/N_rep{4}/g{5}/delta{6}/t{7}'.format(*(BC, system_type, L, seed, N_rep, g, delta, t))
+    save_dir = 'results/MBL/clean:{0}/BC_{1}/Syst_{2}/L{3}/k_even/seed{4}/N_rep{5}/g{6}/delta{7}/t{8}'.format(*(clean, BC, system_type, L, seed, N_rep, g, delta, t))
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     file_name = 'data'
@@ -198,8 +202,8 @@ for c in np.arange(time_steps):
  
     #############################################
     # Real time evolution of vectorized density by exponentiating the Lindbladian
-
-    rho_t = np.dot(expm(Lndbld*dt),rho_vec)
+    
+    rho_t = np.dot(non_unitary,rho_vec)
     
     print('norm=', np.trace(rho_t.reshape(2**L, 2**L)))
     
@@ -281,7 +285,7 @@ for c in np.arange(time_steps):
             # for count_datum, datum in enumerate(dataPBC[key]):
             # plt.plot(scales, datum, color=colors(count_datum))
     
-        ax1.set_title("Ising-Majorana; " + BC +  " BC; " + system_type + " system; L=%d; delta=%d; J=%d; h=%d; g=%.1f; dis.real.=%d; t=%.2f" % (L, delta, XX, Z, g, N_rep, t))
+        ax1.set_title("Ising-Majorana; clean " + clean + "; "  + BC +  " BC; " + system_type + " system; L=%d; delta=%d; J=%d; h=%d; g=%.1f; dis.real.=%d; t=%.2f" % (L, delta, XX, Z, g, N_rep, t))
         ax1.set_ylabel(r"$i^\ell$")
         ax1.set_ylim([0, L])
         ax1.set_xlabel(r"$\ell$")
