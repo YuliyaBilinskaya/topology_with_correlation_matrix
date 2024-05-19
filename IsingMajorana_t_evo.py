@@ -13,6 +13,8 @@ import tables as tb
 import psutil
 from datetime import datetime
 from scipy.sparse.linalg import expm
+from matplotlib.lines import Line2D
+import matplotlib.gridspec as gridspec
 
 start_time = time.time()
 
@@ -32,6 +34,7 @@ ZZ = g                              # Interaction on z direction
 L = args.system_size                # Length of the chain
 k_eigs = args.k_eigs                          # Number of eigenstates per each parity sector
 BC = args.bc                        # Boundary conditions
+bath = args.bath                    # Type of bath coupling
 system_type = args.system           # System type: open, closed
 
 seed = args.seed                    # Seed for the random number generator
@@ -44,8 +47,8 @@ dt = args.dt                        # Time step for the real time evolution
 
 clean = args.clean                  # If True, no disorder is present in the chain. If False, disorder introduced to Z and XX
 
-theta = args.dissipation_th         # Dissipation parameter theta for kappa0 = kappa*cos(theta)
-kappa = args.dissipation_k          # Dissipation parameter kappa for kappa0 = kappa*cos(theta)
+theta = args.dissipation_th         # Dissipation parameter theta for kappa0 = kappa*cos(theta) for a TBD bath type
+kappa = args.dissipation_k          # Dissipation parameter strength of the bath coupling to the system
 
 print("In this script, k_eigs is hard coded to be 1!")
 
@@ -80,12 +83,14 @@ for count, s in enumerate(range(seed, seed + N_rep)):
     
     if clean == 'False':
         chain.new_disorder_realization(s)
+        
     elif clean == 'True':
         chain.clean_realization()
     else:
         raise ValueError('Clean must be "True" or "False"')
 
     H_full = chain.calc_noparity_Hamiltonian(bc=BC) 
+    
     #eigvals, psi_eigvec = eigsh(H_full, k=k_eigs, sigma=0, which='LM', v0 = np.ones(2**L))
     eigvals, psi_eigvec = eigh(H_full)
 
@@ -93,11 +98,10 @@ for count, s in enumerate(range(seed, seed + N_rep)):
 '     -setting initial wavefunction-    '
 print('eigvals', eigvals)
 # Index for the the ground state = 0
-#idx = int(2**L/2)
-psi_full = psi_eigvec[:,0]
+idx = int(L/2+7)
+psi_full = psi_eigvec[:,idx]
 
-#psi_full = np.loadtxt('psi_L4_topol.txt')
-
+#psi_full = np.loadtxt('psi_L6_triv_delta-4.txt')
 
 #print('psi_full', psi_full)
 ###########################################################
@@ -106,29 +110,50 @@ psi_full = psi_eigvec[:,0]
 Idt = np.eye(int(2**L)) #Identity operator of the needed dimension to build Lindbladian
 
 if system_type == 'open':
-    operator = SuperOperator(L=L, theta=theta, kappa=kappa)
-    Lndbld = -1j * (np.kron(H_full, Idt) - np.kron(Idt, np.conj(H_full))) + operator.calc_L_super(bc=BC, theta=theta, kappa=kappa)   
-    #Lndbld =  operator.calc_L_super(bc=BC, theta=theta, kappa=kappa) 
+    operator = SuperOperator(L=L, theta=theta, kappa=kappa, bath=bath)
+    Lndbld = -1j * (np.kron(H_full, Idt) - np.kron(Idt, np.conj(H_full)))  + operator.calc_L_super(bc=BC, theta=theta, kappa=kappa, bath=bath)   
+    #Lndbld =  operator.calc_L_super(bc=BC, theta=theta, kappa=kappa, bath=bath) 
 elif system_type == 'closed':
     Lndbld = -1j * (np.kron(H_full, Idt) - np.kron(Idt, np.conj(H_full))) 
 else:
     raise ValueError('system type must be "open" or "closed"')
 
+#print('diagonal H_full=', np.diag(H_full))
+#print('H_full:')
+#print(H_full)
+#print('diagonal np.kron(H_full, Idt)', np.diag(np.kron(H_full, Idt)))
+#print('diagonal np.kron(Idt, np.conj(H_full))', np.diag(np.kron(Idt, np.conj(H_full))))
+#print('diagonal unitary part', np.diag(np.kron(H_full, Idt)) - np.diag(np.kron(Idt, np.conj(H_full))))
+#print('diagonal Lndbld=', np.diag(Lndbld))
+#print('Lndbld:')
+#print(Lndbld)
+
+
 # non-unitary operator for the time evolution with Lindblad    
 non_unitary = expm(Lndbld*dt)
+
 
 
 '     -Vectorizing rho-      '
 # Option 1: by column
 # =============================================================================
-# rho = np.outer(np.conj(psi_full), psi_full)
-# rho_vec = np.transpose(rho).reshape(len(psi_full)**2,1)
+#rho = np.outer(np.conj(psi_full), psi_full)
+#rho_vec = np.transpose(rho).reshape(len(psi_full)**2,1)
 # =============================================================================
 # Option 2: by row
 rho_vec = np.kron(psi_full, np.conj(psi_full))
+#rho_vec = np.loadtxt('Rho_Prod+Mixed_L6')
+
+#eigvalues, eigvectors = np.linalg.eig(Lndbld)
+#min_idx = min(range(len(eigvalues)), key=abs(eigvalues).__getitem__)
+#rho_vec = eigvectors[:,min_idx]/L
 
 
 time_steps = t_max/dt   # number of timesteps
+
+info_latt_t = np.zeros((int(time_steps), L))
+
+tot_info_t = np.zeros(int(time_steps))
 
 for c in np.arange(time_steps):
     
@@ -136,7 +161,7 @@ for c in np.arange(time_steps):
     
     print('t=', t)
     
-    save_dir = 'results/MBL/clean:{0}/BC_{1}/Syst_{2}/L{3}/k_even/seed{4}/N_rep{5}/g{6}/delta{7}/t{8}'.format(*(clean, BC, system_type, L, seed, N_rep, g, delta, t))
+    save_dir = 'results/clean_{0}/BC_{1}/Syst_{2}/bath_{3}/L{4}/J{5}/mu{6}/seed{7}/kappa{8}/g{9}/delta{10}/t{11}'.format(*(clean, BC, system_type, bath, L, XX, Z, seed, kappa, g, delta, t))
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     file_name = 'data'
@@ -202,12 +227,15 @@ for c in np.arange(time_steps):
  
     #############################################
     # Real time evolution of vectorized density by exponentiating the Lindbladian
-    
-    rho_t = np.dot(non_unitary,rho_vec)
-    
-    print('norm=', np.trace(rho_t.reshape(2**L, 2**L)))
-    
-    rho_vec = rho_t    
+
+    if t == 0:
+        rho_t = rho_vec
+        print('norm=', np.trace(rho_t.reshape(2**L, 2**L)))
+        
+    else:
+        rho_t = np.dot(non_unitary,rho_vec)    
+        print('norm=', np.trace(rho_t.reshape(2**L, 2**L)))   
+        rho_vec = rho_t    
 
     
     ##############################################
@@ -234,6 +262,7 @@ for c in np.arange(time_steps):
         for val in info_per_scale[(delta, count)].values():
             tot += val
         print('tot_info', tot)
+        tot_info = tot
         data_values.extend([tot])
         
     
@@ -255,13 +284,36 @@ for c in np.arange(time_steps):
     print("ave_info_per_scale_delta", ave_info_per_scale_delta)
     
     print('Time elapsed: {:.2e} s'.format(time.time() - start_time))
+
+    
+# PLOTTING
+    
+    h_fig_size = 6
+    golden_ratio = (1. + np.sqrt(5)) / 2
+    #fig1, (ax1, ax2) = plt.subplots(1, 2, figsize=(golden_ratio*h_fig_size, h_fig_size), dpi=400)
+    
+    fig1, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(15, 5), dpi=400)
+
+    
+    
+    #fig1.tight_layout()
+    
+#    if system_type == 'open' and clean == 'False':
+#        fig1.suptitle("Ising-Majorana; clean: " + clean + "; "  + BC +  " BC; " + system_type + " sys;  " + bath + " bath; \n L=%d; delta=%d; J=%d; h=%d; g=%.1f; \n t=%.2f" % (L, delta, XX, Z, g, t))
+        
+#    elif system_type == 'open' and clean == 'True':
+#        fig1.suptitle("Ising-Majorana; clean: " + clean + "; "  + BC +  " BC; " + system_type + " sys;  " + bath + " bath; \n L=%d; J=%d; h=%d; g=%.1f; \n t=%.2f" % (L, XX, Z, g, t))
+        
+#    elif system_type == 'closed' and clean == 'False':
+#        fig1.suptitle("Ising-Majorana; clean: " + clean + "; "  + BC +  " BC; " + system_type + " sys; \n L=%d; delta=%d; J=%d; h=%d; g=%.1f; \n t=%.2f" % (L, delta, XX, Z, g, t))
+        
+#    elif system_type == 'closed' and clean == 'True':
+#        fig1.suptitle("Ising-Majorana; clean: " + clean + "; "  + BC +  " BC; " + system_type + " sys; \n L=%d; J=%d; h=%d; g=%.1f; \n t=%.2f" % (L, XX, Z, g, t))
+
     
     if show:
     # PLOTS
     
-        h_fig_size = 6
-        golden_ratio = (1. + np.sqrt(5)) / 2
-        fig1, ax1 = plt.subplots(1, 1, figsize=(golden_ratio*h_fig_size, h_fig_size), dpi=400)   
         selected_keys = [delta]
     
         for count_k, k in enumerate(selected_keys):
@@ -274,29 +326,161 @@ for c in np.arange(time_steps):
                 ave[l - 1] = ave_info_per_scale_delta.get((k, l), 0)
     
             # print("ave", ave)
+            
+            # saving the initial state
+            if t == 0:
+                scales_t0 = scales
+                ave_t0 = ave
+                interp_func_t0 = PchipInterpolator(scales_t0, ave_t0)
+                interp_scales_t0 = np.arange(scales_t0[0], scales_t0[-1] + 0.1, 0.1)
+                interp_average_t0 = interp_func_t0(interp_scales_t0)
+                marker_ini = 'x'
+                
     
             interp_func = PchipInterpolator(scales, ave)
             interp_scales = np.arange(scales[0], scales[-1] + 0.1, 0.1)
             interp_average = interp_func(interp_scales)
+            marker_fin = '4'
+            
+            ax1.plot(interp_scales_t0, interp_average_t0, color='black', label='Initial state')
+            ax1.plot(scales_t0, ave_t0, marker = marker_ini, linestyle='None', markersize=8, color='deepskyblue', label='Initial state')
     
-            ax1.plot(interp_scales, interp_average, color=colors(count_k), label=k)
-            ax1.plot(scales, ave, marker='x', linestyle='None', color='red')
+            ax1.plot(interp_scales, interp_average, color='black', label='Final state')
+            ax1.plot(scales, ave, marker = marker_fin, linestyle='None', markersize=10, color='blue', label='Final state')
     
             # for count_datum, datum in enumerate(dataPBC[key]):
             # plt.plot(scales, datum, color=colors(count_datum))
     
-        ax1.set_title("Ising-Majorana; clean " + clean + "; "  + BC +  " BC; " + system_type + " system; L=%d; delta=%d; J=%d; h=%d; g=%.1f; dis.real.=%d; t=%.2f" % (L, delta, XX, Z, g, N_rep, t))
-        ax1.set_ylabel(r"$i^\ell$")
-        ax1.set_ylim([0, L])
-        ax1.set_xlabel(r"$\ell$")
-        ax1.legend()
-        plt.savefig(save_dir + ".pdf", dpi=200)
+        ax1.set_ylabel(r"$\mathscr{i}^\ell$", fontsize=18)
+        ax1.set_ylim([-0.1, L+0.1])
+        ax1.set_xlabel(r"$\ell$", fontsize=16)
+        ax1.tick_params(axis='x', labelsize=14)
+        ax1.tick_params(axis='y', labelsize=14)
+
+        #ax1.set_aspect('equal', adjustable='box')
+        
+        legend_elements = [
+            Line2D([0], [0], color='black', marker=marker_ini, markeredgecolor = 'deepskyblue', markersize=8, linestyle='-', label='Initial state'),
+            Line2D([0], [0], color='black', marker=marker_fin, markeredgecolor = 'blue', markersize=10, linestyle='-', label='Final state')
+            ]
+        
+        ax1.legend(handles=legend_elements, fontsize=14)
+        ax1.text(0.07, 0.97, f'({chr(97)})', transform=ax1.transAxes, fontsize=14, verticalalignment='top', weight='bold')
+        
     
-    plt.show()
     
-    #plotting the circle diagram    
-    #infoLattice.plot_info_latt(infoLattice.calc_info_lndbld(rho_vec))
+        #plotting the circle diagram    
+        #ax2.plot(infoLattice.plot_info_latt(infoLattice.calc_info_lndbld(rho_vec), save_dir, t, ax2))
+        
+        color_map = plt.get_cmap("Oranges")
+        info_latt = infoLattice.calc_info_lndbld(rho_vec)
+        
+        print('info_latt', info_latt)
+        r = 1/(4*L)
+        #fig, ax = plt.subplots(dpi=300)
+        for l in info_latt:
+            for x in range(len(info_latt[l])):
+                ax2.add_artist(plt.Circle((x/L+l/(2*L), (l-0.5)/L), r, color=color_map(info_latt[l][x])))
+        ax2.set_xlim([-2*r,1])
+        #YB:
+        
+        x_ticks = []
+        y_ticks = []
+        for x in range(len(info_latt[1])):
+            print("x",x)
+            x_ticks.append(x/L+1/(2*L))
+            y_ticks.append(x/L+1/(2*L))
     
+        
+        ax2.set_xticks(x_ticks, range(1,L+1))
+        ax2.set_yticks(y_ticks, range(0,L))
+        
+        ax2.set_xlabel('Site', fontsize=16)
+        ax2.set_ylabel('$\ell$', fontsize=16)
+        ax2.tick_params(axis='x', labelsize=14)
+        ax2.tick_params(axis='y', labelsize=14)
+        
+        ax2.set_ylim([-2*r,1+2*r])
+        ax2.text(0.07, 0.97, f'({chr(97+1)})', transform=ax2.transAxes, fontsize=14, verticalalignment='top', weight='bold')
+        
+        info_latt_t[int(c),:]= ave
+        
+        x_linspace = np.arange(0, t_max, dt)
+        
+        tot_info_t[int(c)] = tot_info
+                
+        markermap = ['o', 's', 'd', '^', 'v', '>', '<', 'p']
+    
+        for w in [0, int(L/2)]:
+            ax3.plot(x_linspace, info_latt_t[:,w], marker=markermap[w], markerfacecolor='None', color = 'black', linewidth = 1, label = ("$\mathscr{i}^%d$" % (w)))
+
+        ax3.plot(x_linspace, tot_info_t, linestyle = '--', color='green', label = ("$I_{tot}$"))
+
+        ax3.legend(fontsize=14)
+        
+        ax3.set_xlabel('t', fontsize=16)
+        ax3.set_ylabel(r"$\mathscr{i}^\ell$", fontsize=18, labelpad=1)
+        ax3.tick_params(axis='x', labelsize=14)
+        ax3.tick_params(axis='y', labelsize=14)
+        ax3.text(0.07, 0.97, f'({chr(97+2)})', transform=ax3.transAxes, fontsize=14, verticalalignment='top', weight='bold')
+    
+        
+        plt.savefig(save_dir + ".pdf", dpi=200, bbox_inches='tight')
+        
+        plt.show()
+    
+ #%%
+
+  
+        if system_type == 'open' and clean == 'False':
+            fig1.suptitle("Ising-Majorana; clean: " + clean + "; "  + BC +  " BC; " + system_type + " sys;  " + bath + " bath; L=%d; delta=%d; J=%d; h=%d; g=%.1f; t=%.2f" % (L, delta, XX, Z, g, t))
+            
+        elif system_type == 'open' and clean == 'True':
+            fig1.suptitle("Ising-Majorana; clean: " + clean + "; "  + BC +  " BC; " + system_type + " sys;  " + bath + " bath; L=%d; J=%d; h=%d; g=%.1f; t=%.2f" % (L, XX, Z, g, t))
+            
+        elif system_type == 'closed' and clean == 'False':
+            fig1.suptitle("Ising-Majorana; clean: " + clean + "; "  + BC +  " BC; " + system_type + " sys; L=%d; delta=%d; J=%d; h=%d; g=%.1f; t=%.2f" % (L, delta, XX, Z, g, t))
+            
+        elif system_type == 'closed' and clean == 'True':
+            fig1.suptitle("Ising-Majorana; clean: " + clean + "; "  + BC +  " BC; " + system_type + " sys; L=%d; J=%d; h=%d; g=%.1f; t=%.2f" % (L, XX, Z, g, t))
 
 
 
+    ax3.plot(np.round(np.linspace(0,t, int(t/dt)+1),2),info_latt_t1, marker = 'o', markersize = 5, color='blue', label = ("level: %d, site: %d" % (level1, site1+1)))
+    ax3.plot(np.round(np.linspace(0,t, int(t/dt)+1),2),info_latt_t2, marker = 'o', markersize = 5, color='orange', label = ("level: %d, site: %d" % (level2, site2+1)))
+    ax3.plot(np.round(np.linspace(0,t, int(t/dt)+1),2),info_latt_t3, marker = 'o', markersize = 5, color='green', label = ("level: %d, site: %d" % (level3, site3+1)))
+    ax3.plot(np.round(np.linspace(0,t, int(t/dt)+1),2),info_latt_t4, marker = 'o', markersize = 5, color='purple', label = ("level: %d, site: %d" % (level4, site4+1)))
+
+x_linspace = np.arange(0, t_max, dt)[0:int(c)+1]
+        
+        # specify subsystems that are interesting to track
+        level1 = 0   # the level of subsystem 1
+        site1 = 0    # what site on that level is interesting
+        info_latt_t1.append(info_latt[level1+1][site1])
+        n1 = (level1+1)/2 + 0.5 + site1     #calculates the central value of the subsystem 1
+        
+        level2 = 0
+        site2 = 1
+        info_latt_t2.append(info_latt[level2+1][site2])
+        n2 = (level2+1)/2 + 0.5 + site2
+        
+        level3 = 0
+        site3 = 3
+        info_latt_t3.append(info_latt[level3+1][site3])
+        n3 = (level3+1)/2 + 0.5 + site3
+        
+        level4 = 0
+        site4 = 5
+        info_latt_t4.append(info_latt[level4+1][site4])
+        n4 = (level4+1)/2 + 0.5 + site4
+        
+        x_linspace = np.arange(0, t_max, dt)[0:int(c)+1]
+        
+        tot_info_t.append(tot_info/L)
+        
+    #    ax3.plot(np.round(np.linspace(0,t, int(t/dt)+1),2),tot_info, marker = 'o', markersize = 5, color='grey', label = ("$\mathscr{I}$_{tot}"))
+        ax3.plot(x_linspace, info_latt_t1, color='blue', linewidth = 3, label = ("$\mathscr{i}^%d_{%.1f}$" % (level1, n1)))
+        ax3.plot(x_linspace, info_latt_t2, color='orange', linewidth = 3, label = ("$\mathscr{i}^%d_{%.1f}$" % (level2, n2 )))
+        ax3.plot(x_linspace, info_latt_t3, color='green', linewidth = 3, label = ("$\mathscr{i}^%d_{%.1f}$" % (level3, n3 )))
+        ax3.plot(x_linspace, info_latt_t4, color='purple', linewidth = 3, label = ("$\mathscr{i}^%d_{%.1f}$" % (level4, n4 )))
+        ax3.plot(x_linspace, tot_info_t, color='grey', linewidth = 3, label = ("$I_{tot}/L$"))
