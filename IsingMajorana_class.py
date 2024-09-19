@@ -116,15 +116,20 @@ def hopping(n, i, j):
     otherwise return None.
 
     """
+    
+    #print('i=', i)
+    #print('j=', j)
+    #print('binary=', n)
     if i == j and n[i] == 1: 
         a = n_to_bin(n) 
+        #print('exponent', 1)
+        #print('a', bin_to_n(a, L))
         return a, 1
     elif n[i] == 0 and n[j] == 1:
         a = n_to_bin(n) 
         exponent = np.sum(n[min(i, j) + 1: max(i, j)]) 
-        #print('n', n)
-        #print('hopping exponent', exponent)
-        #print('(-1) ** exponent', (-1) ** exponent)
+        #print('exponent', exponent)
+        #print('a', bin_to_n(a + 2 ** i - 2 ** j, L))
         return a + 2 ** i - 2 ** j, (-1) ** exponent 
     else:
         return None
@@ -152,12 +157,17 @@ def pairing(n, i, j):
     if i != j and (n[i] == 1 and n[j] == 1):
         a = n_to_bin(n)
         exponent = np.sum(n[min(i, j):max(i, j)]) 
+        #print('i=', i)
+        #print('j=', j)
+        #print('n starting state:', n)
+        #print('hopping exponent', exponent)
+        #print('new state:', bin_to_n(a - 2 ** i - 2 ** j, 6))
         return a - 2 ** i - 2 ** j, np.sign(i - j) * (-1) ** exponent 
     else:
         return None
 
-
-def jump(n, i, j):
+# this bath acts on each pair of sites of the chain
+def jump_TBD(n, i, j, theta, L):
     """
     Jump term of the form c^+_i + c^+_i+1 - c_i+1 + c_i = c^+_i + c^+_j - c_j + c_i
     
@@ -178,52 +188,306 @@ def jump(n, i, j):
     otherwise return None.
 
     """
-    
+
     if i != j:
         #print('i=', i)
         #print('j=', j)
         #print('binary=', n)
+        
         if n[i] == 1:
             a = n_to_bin(n)
-            exponent_i = np.sum(n[0:i])   
+            exponent_i = np.sum(n[0:i])    
             #print('exponent_i', exponent_i)
             a_i =  a - 2 ** i
-            #print('a_i', bin_to_n(a_i, 4))
+            #print('a_i', bin_to_n(a_i, L))
             #print('a_i', a_i)
-            phase_i = (-1) ** exponent_i
+            phase_i = (-1) ** exponent_i * np.cos(theta)
         
         elif n[i] == 0:
             a = n_to_bin(n)
             exponent_i = np.sum(n[0:i])            
             #print('exponent_i', exponent_i)
             a_i =  a + 2 ** i 
-            #print('a_i', bin_to_n(a_i, 4))
+            #print('a_i', bin_to_n(a_i, L))
             #print('a_i', a_i)
-            phase_i = (-1) ** exponent_i
+            phase_i = (-1) ** exponent_i * np.sin(theta)
     
         
         if n[j] == 1:
             a = n_to_bin(n)
-            exponent_j = np.sum(n[0:j])+1      #adding 1 due to a minus in front of a_i+1 in Topol Quantum wire paper (DOI: 10.1038/NPHYS2106)
+            exponent_j = np.sum(n[0:j])      
             #print('exponent_j', exponent_j)
             a_j =  a - 2 ** j
-            #print('a_j', bin_to_n(a_j, 4))
+            #print('a_j', bin_to_n(a_j, L))
             #print('a_j', a_j)
-            phase_j = (-1) ** (exponent_j)
+            phase_j = - (-1) ** (exponent_j) * np.sin(theta)       #adding a minus in front of a_i+1 as in Topol Quantum wire paper (DOI: 10.1038/NPHYS2106)
         
         elif n[j] == 0:
             a = n_to_bin(n)
             exponent_j = np.sum(n[0:j]) 
             #print('exponent_j', exponent_j)
             a_j =  a + 2 ** j
-            #print('a_j', bin_to_n(a_j, 4))
+            #print('a_j', bin_to_n(a_j, L))
             #print('a_j', a_j)
-            phase_j = (-1) ** (exponent_j)
-            
+            phase_j =  (-1) ** (exponent_j) * np.cos(theta)
+        else:
+            return None  
+        
         return a_i, phase_i, a_j, phase_j
+
+        
+
+
+def jump_TBD_prod(n, i, j, L):
+    """
+    Jump term of the form (c^+_i + c^+_i+1) (- c_i+1 + c_i) = (c^+_i + c^+_j) (- c_j + c_i) = 
+    
+    = (c^+_i c_i + c^+_j c_i - c^+_i c_j - c^+_j c_j)
+    
+    Calculates the binary r, and phase alpha.
+    
+    Parameters
+    ----------
+    n : list of integers
+        the binary representation of the state [n0,n1,...,n_{L-1}].
+    i : int
+    j : int
+
+    Returns
+    -------
+    r and alpha if the state |a> is not annihilated,
+    otherwise return None.
+
+    """
+
+    #print('i=', i)
+    #print('j=', j)
+    #print('binary=', n)
+    
+    if n[i] == 1 and n[j] == 1:
+        a = n_to_bin(n)
+        
+        # c^+_i c_i - c^+_j c_j term
+        a_i = a                         # c^+_i c_i term
+        a_j = a                         # c^+_j c_j term
+        phase_i = 1                     # c^+_i c_i term
+        phase_j = -1                    # - c^+_j c_j term
+        #print('a_i', bin_to_n(a_i, L))
+        #print('binary a_i', a_i)
+        #print('phase_i', phase_i)
+        #print('a_j', bin_to_n(a_j, L))
+        #print('binary a_j', a_j)
+        #print('phase_j', phase_j)
+    
+    elif n[i] == 1 and n[j] == 0:
+        a = n_to_bin(n)
+        
+        # c^+_j c_i + c^+_i c_i term
+        exponent_j = np.sum(n[min(i, j) + 1: max(i, j)])
+        #print('exponent_i', exponent_i)
+        a_j = a - 2 ** i + 2 ** j       # c^+_j c_i term
+        a_i = a                         # c^+_i c_i term
+        phase_i = 1                     # c^+_i c_i term
+        phase_j = (-1) ** (exponent_j)  # c^+_j c_i term
+        #print('a_i', bin_to_n(a_i, L))
+        #print('binary a_i', a_i)
+        #print('phase_i', phase_i)
+        #print('a_j', bin_to_n(a_j, L))
+        #print('binary a_j', a_j)
+        #print('phase_j', phase_j)
+
+    
+    
+    elif n[i] == 0 and n[j] == 1:
+        a = n_to_bin(n)
+        
+        # - c^+_i c_j - c^+_j c_j term
+        exponent_i = np.sum(n[min(i, j) + 1: max(i, j)])
+        #print('exponent_j', exponent_j)
+        a_i =  a - 2 ** j + 2 ** i      # c^+_i c_j term
+        a_j =  a                        # c^+_j c_j term      
+        phase_i = - (-1) ** (exponent_i)# - c^+_i c_j term
+        phase_j = - 1                   # - c^+_j c_j term
+        #print('a_i', bin_to_n(a_i, L))
+        #print('binary a_i', a_i)
+        #print('phase_i', phase_i)
+        #print('a_j', bin_to_n(a_j, L))
+        #print('binary a_j', a_j)
+        #print('phase_j', phase_j)
         
     else:
-        return None
+        return None  
+    
+    return a_i, phase_i, a_j, phase_j
+
+
+
+
+# this bath acts on each site of the chain    
+def jump_EachSite(n, i, L):
+    """
+    Jump term of the form c^+_i + c_i = c^+_i + c_i
+    
+    Calculates the binary r, and phase alpha where
+    (c^+_i + c_i) |a> = \alpha_i |r_i>,  \alpha_j |r_j>
+    with a obtained from the state n = [n0,...,n_{L-1}]
+
+    Parameters
+    ----------
+    n : list of integers
+        the binary representation of the state [n0,n1,...,n_{L}].
+    i : int
+
+    Returns
+    -------
+    r and alpha if the state |a> is not annihilated,
+    otherwise return None.
+
+    """
+
+#    print('i=', i)
+#    print('binary=', n)
+  
+    if n[i] == 1:
+        a = n_to_bin(n)
+        exponent_i = np.sum(n[0:i])    
+        #print('exponent_i', exponent_i)
+        a_i =  a - 2 ** i
+        #print('a_i', bin_to_n(a_i, L))
+        #print('a_i', a_i)
+        phase_i = (-1) ** exponent_i 
+    
+    elif n[i] == 0:
+        a = n_to_bin(n)
+        exponent_i = np.sum(n[0:i])            
+        #print('exponent_i', exponent_i)
+        a_i =  a + 2 ** i 
+        #print('a_i', bin_to_n(a_i, L))
+        #print('a_i', a_i)
+        phase_i = (-1) ** exponent_i 
+        
+    else:
+        return None 
+        
+    return a_i, phase_i
+
+# this bath acts only on the first and last sites of the chain
+def jump_EdgeSites(n, i, L):
+    """
+    Jump term of the form c^+_0 + c_0 + c^+_L + c_L 
+    
+    Calculates the binary r, and phase alpha where
+    (c^+_0 + c_0 + c^+_L + c_L) |a> = \alpha_i |r_i>,  \alpha_j |r_j>
+    with a obtained from the state n = [n0,...,n_{L-1}]
+
+    Parameters
+    ----------
+    n : list of integers
+        the binary representation of the state [n0,n1,...,n_{L}].
+    i : int
+
+    Returns
+    -------
+    r and alpha if the state |a> is not annihilated,
+    otherwise return None.
+
+    """
+
+    print('i=', i)
+    print('binary=', n)
+    
+    if (i == 0 or i == L-1) and n[i] == 1:
+        a = n_to_bin(n)
+        exponent_i = np.sum(n[0:i])    
+        print('exponent_i', exponent_i)
+        a_i =  a - 2 ** i
+        print('a_i', bin_to_n(a_i, L))
+        #print('a_i', a_i)
+        phase_i = (-1) ** exponent_i 
+    
+    elif (i == 0 or i == L-1) and n[i] == 0:
+        a = n_to_bin(n)
+        exponent_i = np.sum(n[0:i])            
+        print('exponent_i', exponent_i)
+        a_i =  a + 2 ** i 
+        print('a_i', bin_to_n(a_i, L))
+        #print('a_i', a_i)
+        phase_i = (-1) ** exponent_i 
+    else:
+        return None    
+          
+    return a_i, phase_i
+
+# this bath acts only on the first site of the chain
+def jump_OneEdgeSite(n, i, j, theta, L):
+    """
+    Jump term of the form c^+_0 + c_0  
+    
+    Calculates the binary r, and phase alpha where
+    (c^+_0 + c_0 ) |a> = \alpha_i |r_i>,  \alpha_j |r_j>
+    with a obtained from the state n = [n0,...,n_{L-1}]
+
+    Parameters
+    ----------
+    n : list of integers
+        the binary representation of the state [n0,n1,...,n_{L}].
+    i : int
+
+    Returns
+    -------
+    r and alpha if the state |a> is not annihilated,
+    otherwise return None.
+
+    """
+
+
+    if i != j:
+        print('i=', i)
+        print('j=', j)
+        #print('binary=', n)
+        
+        if (i == 0) and n[i] == 1:
+            a = n_to_bin(n)
+            exponent_i = np.sum(n[0:i])    
+            #print('exponent_i', exponent_i)
+            a_i =  a - 2 ** i
+            print('a_i', bin_to_n(a_i, L))
+            print('a_i', a_i)
+            phase_i = (-1) ** exponent_i * np.cos(theta)
+        
+        elif (i == 0) and n[i] == 0:
+            a = n_to_bin(n)
+            exponent_i = np.sum(n[0:i])            
+            #print('exponent_i', exponent_i)
+            a_i =  a + 2 ** i 
+            print('a_i', bin_to_n(a_i, L))
+            print('a_i', a_i)
+            phase_i = (-1) ** exponent_i * np.sin(theta)
+    
+        
+        if (i == 0) and n[j] == 1:
+            a = n_to_bin(n)
+            exponent_j = np.sum(n[0:j])      
+            #print('exponent_j', exponent_j)
+            a_j =  a - 2 ** j
+            print('a_j', bin_to_n(a_j, L))
+            print('a_j', a_j)
+            phase_j = - (-1) ** (exponent_j) * np.sin(theta)       #adding a minus in front of a_i+1 as in Topol Quantum wire paper (DOI: 10.1038/NPHYS2106)
+        
+        elif (i == 0) and n[j] == 0:
+            a = n_to_bin(n)
+            exponent_j = np.sum(n[0:j]) 
+            #print('exponent_j', exponent_j)
+            a_j =  a + 2 ** j
+            print('a_j', bin_to_n(a_j, L))
+            print('a_j', a_j)
+            phase_j = (-1) ** (exponent_j) * np.cos(theta)
+        else:
+            return None  
+        
+        return a_i, phase_i, a_j, phase_j
+
+    
  
 
 @dataclass
@@ -238,23 +502,20 @@ class SuperOperator:
      
      """
 
-    def __init__(self, L, theta, kappa):
+    def __init__(self, L, theta, kappa, bath):
         self.L = L              # Number of sites
         self.theta = theta
         self.kappa = kappa
+        self.bath = bath
                
     
-    def calc_L_super(self, bc, theta, kappa):    
+    def calc_L_super(self, bc, theta, kappa, bath):    
         
         """
         Calculating L_jump_i, then building L_super_i and finally summing over all L_super_i's
 
-
         """             
         L = self.L
-        
-        
-        kappa0 = kappa*np.cos(theta)
 
         dmns = 4**L
         L_super = np.zeros((L,dmns, dmns))
@@ -262,12 +523,15 @@ class SuperOperator:
         # Boundary conditions
         if bc == 'periodic':
             Lhop = L
-        elif bc == 'open':
+        elif bc == 'open' and (bath == 'TBD' or bath == 'TBD_prod'):
             Lhop = L - 1
+        elif (bc == 'periodic' or bc == 'open') and (bath == 'Each_site' or bath == 'Edge_sites'  or bath == 'OneEdge_site'):
+            Lhop = L
         else:
-            raise ValueError('boundary condition must be "periodic" or "open"')
+            raise ValueError('boundary condition must be "periodic" or "open" and bath must be "TBD","TBD_prod", "Each_site" or "Edge_sites" or "OneEdge_site" ')
         
         Id = np.eye(int(2**L))
+        
         dim = 2 ** L 
         
         # Nearest-neighbor terms
@@ -290,43 +554,140 @@ class SuperOperator:
                 # OBS factor 1/2 is from the Quantum wire paper
                 try:
                    # get the binary state and the phase of the jump operator
-                   a_i, h_i, a_j, h_j  = jump(n, i, j)
-
-                   #print('a_i', a_i)
-                   #print('a_j', a_j)
-                   #print('h_i', h_i)
-                   #print('h_j', h_j)
                    
-                   # assign values to the correct location in the Hilbert space
-                   L_jump[a_i, r] += 1/2 * h_i
-                   L_jump[a_j, r] += 1/2 * h_j            
+                   if bath == 'TBD':
+                       a_i, h_i, a_j, h_j  = jump_TBD(n, i, j, theta, L)
 
+                       #print('a_i', a_i)
+                       #print('a_j', a_j)
+                       #print('h_i', h_i)
+                       #print('h_j', h_j)
                        
+                       # assign values to the correct location in the Hilbert space
+                       L_jump[a_i, r] += 1/np.sqrt(2) * h_i 
+                       L_jump[a_j, r] += 1/np.sqrt(2) * h_j 
+    
+                       
+                       #print('L_jump[a_i, r]', L_jump[a_i, r])
+                       #print('L_jump[a_j, r]', L_jump[a_j, r]) 
+
+
+                   elif bath == 'TBD_prod':
+                       a_i, h_i, a_j, h_j  = jump_TBD_prod(n, i, j, L)
+
+                       #print('a_i', a_i)
+                       #print('a_j', a_j)
+                       #print('h_i', h_i)
+                       #print('h_j', h_j)
+                       
+                       # assign values to the correct location in the Hilbert space
+                       L_jump[a_i, r] += 1/4 * h_i 
+                       L_jump[a_j, r] += 1/4 * h_j 
+    
+                       
+                       #print('L_jump[a_i, r]', L_jump[a_i, r])
+                       #print('L_jump[a_j, r]', L_jump[a_j, r]) 
+                       
+                       
+                   
+                   elif bath == 'Each_site':
+                       a_i, h_i  = jump_EachSite(n, i, L)
+
+                       #print('a_i', a_i)
+                       #print('h_i', h_i)
+                       
+                       # assign values to the correct location in the Hilbert space
+                       L_jump[a_i, r] +=  h_i
+                       
+                       #print('L_jump[a_i, r]', L_jump[a_i, r])
+                       
+                   elif bath == 'Edge_sites':
+                       a_i, h_i  = jump_EdgeSites(n, i, L)
+
+                       #print('a_i', a_i)
+                       #print('h_i', h_i)
+                    
+                       # assign values to the correct location in the Hilbert space
+                       L_jump[a_i, r] +=  h_i
+                    
+                       #print('L_jump[a_i, r]', L_jump[a_i, r])
+                       
+                   elif bath == 'OneEdge_site':
+                       a_i, h_i, a_j, h_j  = jump_OneEdgeSite(n, i, j, theta, L)
+    
+                       #print('a_i', a_i)
+                       #print('h_i', h_i)
+                     
+                       # assign values to the correct location in the Hilbert space
+                       L_jump[a_i, r] += 1/np.sqrt(2) * h_i
+                       L_jump[a_j, r] += 1/np.sqrt(2) * h_j 
+                     
+                       #print('L_jump[a_i, r]', L_jump[a_i, r])
+                       
+                       
+                       
+
                 except TypeError as e:
                     #print(f"TypeError occurred: {e}")
                     #print(f"n: {n}")
                     #print(f"i: {i}")
                     #print(f"j: {j}")
                     pass
+                
             
-            #plt.matshow(np.real(L_jump))
+            
+# =============================================================================
+#            plt.matshow(np.real(L_jump))
+#            cbar = plt.colorbar()
+#            plt.title('L_jump$_{}$'.format(i), fontsize=6)
+#            print('L_jump=',np.real(L_jump))
+#            cbar.ax.tick_params(labelsize=6)
+            
+# =============================================================================
+            #print('i=',i)
+            #print('L_jump=', L_jump)
             
              # building the super-operator for site i               
             L_jump_dagger = np.conj(np.transpose(L_jump))
-                
+            
+            #term1 = np.kron(np.transpose(L_jump_dagger), L_jump)
+            
+            #term2 = 1/2*np.kron(Id, np.matmul(L_jump_dagger,L_jump))
+            
+            #term3 = 1/2*np.kron(np.transpose(np.matmul(L_jump_dagger,L_jump)), Id)
+            
             L_super[i,:,:] = np.kron(L_jump, np.conj(L_jump)) - 1/2*np.kron(np.dot(L_jump_dagger,L_jump), Id) - 1/2*np.kron(Id, np.conj(np.dot(L_jump_dagger,L_jump)))
             
-            #plt.matshow(np.real(L_super[i,:,:]))
+            #L_super[i,:,:] = term1 - term2 - term3
+        
+# =============================================================================
+#            plt.matshow(np.real(L_super[i,:,:]))
+#            cbar = plt.colorbar()
+#            plt.title('L_super$_{}$'.format(i), fontsize=6)
+#            plt.tick_params(axis='both', labelsize=6)
+#            cbar.ax.tick_params(labelsize=6)
+# =============================================================================
+            
             #print('L_super_i', L_super[i,:,:])
             
         #Summing over all i to get the final Super-operator
-        #plt.matshow(np.real(np.sum(L_super, axis=0)))
+# =============================================================================
+#        plt.matshow(np.real(np.sum(L_super, axis=0)))
+#        cbar = plt.colorbar()
+#        plt.title('L_super', fontsize=6)
+#        plt.tick_params(axis='both', labelsize=6)
+#        cbar.ax.tick_params(labelsize=6)
+# =============================================================================
+        
         
         # Multiplying the super-operator with \kappa0 as in Topol by dissipartion paper (DOI: 10.1038/NPHYS2106)
-        L_super = kappa0 * np.sum(L_super, axis=0)
-        #print('L_super', L_super)          
+        L_super_tot = kappa * np.sum(L_super, axis=0)
+        print('L_super shape:', np.shape(L_super))
+        
+        #print('L_super=', L_super_tot)
+                
     
-        return L_super
+        return L_super_tot
 
 
 #####################################################################
@@ -443,6 +804,7 @@ class IsingMajorana:
         elif bc == 'open':
             Lhop = L - 1
             Lhop2 = L - 2
+        
         else:
             raise ValueError('boundary condition must be "periodic" or "open"')
 
@@ -461,18 +823,24 @@ class IsingMajorana:
             # Diagonal term from onsite random field: h_i(2n_i - 1)
             for i in range(L):
                 H[r, r] -= self.disZ[i] * onsite_field(n, i)
-            #print('n=', n)
-            #print('H[r,r]=', H[r, r])
+                #print('i', i)
+                #print('n=', n)
+                #print('onsite_field', onsite_field(n, i))
+                #print('disZ', self.disZ[i])
+                #print('H[r,r] \mu', H[r, r])
             # Nearest-neighbor terms
             for i in range(Lhop):
                 if bc == 'periodic':
                     j = np.mod(i + 1, Lhop)  # j is either i+1 or 0
-                else:
+                elif bc == 'open':
                     j = i + 1
+                else:
+                    raise ValueError('boundary condition must be "periodic" or "open"')
 
 #YB: change to the parity basis, calculate hopping/pairing value ht/hp, add it to the corresponding off-diagonal in the Hamiltonian
 #    and its conjugate to the opposite side of the diagonal.
-
+                #print('i:', i)
+                #print('j:', j)
                 # Hopping term
                 try:
                     b, h = hopping(n, i, j)
@@ -481,6 +849,10 @@ class IsingMajorana:
                     #print('ht', ht)
                     H[b, r] += ht
                     H[r, b] += np.conjugate(ht)
+                    #print('b', b)
+                    #print('r', r)
+                    #print('H[b, r] hop', H[b, r])
+                    #print('H[r, b] hop', H[r, b])
                 except TypeError as e:
                     #print(f"TypeError occurred: {e}")
                     #print(f"n: {n}")
@@ -495,6 +867,10 @@ class IsingMajorana:
                     #print('hp', hp)
                     H[b, r] += hp
                     H[r, b] += np.conjugate(hp)
+                    #print('b', b)
+                    #print('r', r)
+                    #print('H[b, r] pair', H[b, r])
+                    #print('H[r, b] pair', H[r, b])
                 except TypeError:
                     pass
 
@@ -514,6 +890,7 @@ class IsingMajorana:
                     phase = onsite_field(n, k)
                     H[b, r] += (phase * ht)
                     H[r, b] += np.conjugate(phase * ht)
+                    
                 except TypeError:
                     pass
 

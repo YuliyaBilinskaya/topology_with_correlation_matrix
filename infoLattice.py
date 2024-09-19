@@ -11,6 +11,7 @@ import numpy as np
 from scipy.linalg import eigh
 from scipy.stats import unitary_group
 import matplotlib.pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap
 
 
 
@@ -20,7 +21,7 @@ def partial_trace(rho_vec,n,l):
     L = int(np.log2(np.size(rho_vec)))//2
     rho = np.reshape(rho_vec,(2*L)*[2])  
     for w in range(L-l):
-        print('w=',w)
+        #print('w=',w)
         #print('rho=', np.shape(rho))
         
         if w < n:
@@ -28,9 +29,9 @@ def partial_trace(rho_vec,n,l):
         elif w == n or w > n:
             rho = np.trace(rho, axis1=l, axis2=l+L-w)
     dim = 2**(l)
-    print('l=',l)
-    print('n=',n)
-    print('dim_red=', dim)
+    #print('l=',l)
+    #print('n=',n)
+    #print('dim_red=', dim)
     #print('rho=', np.reshape(rho,(dim,dim)))
     return np.reshape(rho,(dim,dim))
 
@@ -51,15 +52,15 @@ def S_vN_lndbld(rho):
 
     eigvals, eigvecs = eigh(rho)
     
-    print('eigvals', eigvals)
+    #print('eigvals', eigvals)
     
     # Substituting with 1e-22 eigenvalues which happened to be negative due to numerical error
     # or if the eigvenvalue is exactly zero set it to 1e-22 to be able to calculate log2
-    eigvals[(eigvals > -1e-14) & (eigvals < 1e-30)] = 1e-22
+    eigvals[(eigvals > -1.5e-12) & (eigvals < 1e-30)] = 1e-22
     
     print('eigvals', eigvals)
-    print('trace_rho', np.sum(eigvals))
-    print('entropy', -np.sum(eigvals * np.log2(eigvals)))
+    #print('trace_rho', np.sum(eigvals))
+    #print('entropy', -np.sum(eigvals * np.log2(eigvals)))
     
     return -np.sum(eigvals * np.log2(eigvals))
 
@@ -303,31 +304,31 @@ def calc_info_lndbld(rho_vec):
 
     '''
 
-    assert len(rho_vec.shape) == 1
+    #assert len(rho_vec.shape) == 1
     #assert rho_vec.shape[1] == 1
     L = int(np.log2(rho_vec.size))//2
     SvN = calc_entropies_lndbld(rho_vec)
     
     info_latt = {}
     for l in range(1, L + 1):
-        print('l=',l)
+        #print('l=',l)
         if l == 1:
             info_latt[l] = l - SvN[l]
-            print('SvN[l]', SvN[l])
+            #print('SvN[l]', SvN[l])
         elif l == 2:
             info_latt[l] = 2 - l - SvN[l] + SvN[l - 1][:-1] + SvN[l - 1][1:]
-            print('SvN[l]', SvN[l])
-            print('SvN[l - 1][:-1]', SvN[l - 1][:-1])
-            print('SvN[l - 1][1:]', SvN[l - 1][1:])
+            #print('SvN[l]', SvN[l])
+            #print('SvN[l - 1][:-1]', SvN[l - 1][:-1])
+            #print('SvN[l - 1][1:]', SvN[l - 1][1:])
 
-            print('SvN', SvN)
+            #print('SvN', SvN)
         else:
-            print('SvN[l]', SvN[l])
-            print('SvN[l - 1][:-1]', SvN[l - 1][:-1])
-            print('SvN[l - 1][1:]', SvN[l - 1][1:])
-            print('SvN[l - 2][1:-1]', SvN[l - 2][1:-1])
-            print('SvN[l - 2]', SvN[l - 2])
-            print('SvN', SvN)
+            #print('SvN[l]', SvN[l])
+            #print('SvN[l - 1][:-1]', SvN[l - 1][:-1])
+            #print('SvN[l - 1][1:]', SvN[l - 1][1:])
+            #print('SvN[l - 2][1:-1]', SvN[l - 2][1:-1])
+            #print('SvN[l - 2]', SvN[l - 2])
+            #print('SvN', SvN)
             info_latt[l] = -SvN[l] + SvN[l - 1][:-1] + SvN[l - 1][1:] - SvN[l - 2][1:-1]
 
     return info_latt
@@ -401,16 +402,24 @@ def calc_info_per_scale(info_latt, bc):
     return info_per_scale
 
 
-def plot_info_latt(info_latt):
+def plot_info_latt(info_latt, save_dir, t, ax2):
     color_map = plt.get_cmap("Oranges")
+    
+    colors = color_map(np.linspace(0, 1, 20))
+    
+    colors[0] = [1, 1, 1, 1]
+
+
+    custom_cmap = LinearSegmentedColormap.from_list("custom_colormap", colors)
+    
     L = max(info_latt.keys())
     print("info_latt.keys()", info_latt.keys())
     print("tuple", L)
     r = 1/(4*L)
-    fig, ax = plt.subplots(dpi=300)
+    #fig, ax = plt.subplots(dpi=300)
     for l in info_latt:
         for x in range(len(info_latt[l])):
-            ax.add_artist(plt.Circle((x/L+l/(2*L), (l-0.5)/L), r, color=color_map(info_latt[l][x])))
+            ax2.add_artist(plt.Circle((x/L+l/(2*L), (l-0.5)/L), r, facecolor=custom_cmap(info_latt[l][x]), edgecolor='black', linewidth = 0.2))
     plt.xlim([-2*r,1])
     #YB:
     print("range(len(info_latt[1]))", range(len(info_latt[1])))
@@ -426,12 +435,14 @@ def plot_info_latt(info_latt):
     plt.yticks(y_ticks, range(0,L))
     
     plt.xlabel('Sites')
-    plt.ylabel('Levels (l)')
+    plt.ylabel('$\ell$)')
     
     plt.ylim([-2*r,1+2*r])
-    ax.set_aspect('equal')
+    ax2.set_aspect('equal')
+    plt.title("t=%.2f" % (t))
+    #plt.savefig(save_dir + "_circle.pdf", dpi=200)
     #plt.axis('off')
-    plt.show()
+    #plt.show()
 
 
 def singlet(L):
