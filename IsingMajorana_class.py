@@ -14,7 +14,36 @@ from scipy.stats import unitary_group
 import itertools
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+import math
 mpl.rcParams['figure.dpi'] = 300
+
+def SS_degen(theta, rho_degen1_ho, rho_degen2_ho, L, rho_degen_o):
+                
+    # making the rotation matrix with (M^2-M)/2 Euler angles, where M is # of degeneracies
+    # for 2 degenraces only 1 euler angle needed, \theta
+    U_euler = [[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]]
+    
+    rho_ksi_o = np.dot(np.kron(np.squeeze(U_euler), np.eye(int(2**L))), rho_degen_o)        # np.squeeze removes the 3rd redundant dimension of U_euler
+    
+    # separating the two density matrices
+    rho_ksi1 = rho_ksi_o[0:2**L,0:2**L]
+    rho_ksi2 = rho_ksi_o[2**L:2*2**L,0:2**L]
+    
+    # getting the eigenvalues of each density matrix
+    ev1 = np.linalg.eigvals(rho_ksi1)
+    ev2 = np.linalg.eigvals(rho_ksi2)
+    
+    all_eigvals = np.concatenate((ev1, ev2))
+    
+    fun_val = 0
+
+    # setting up minimization expression: sum_i ( \lambda(theta)_i - abs(\lambda(theta)_i) ) = 0
+    # which means that sum of all eigenvalues minus their absolute values should be equal to zero as a function of unknown theta
+            
+    for i in all_eigvals:              
+        fun_val += (abs(i) - i)
+    
+    return fun_val
 
 
 # YB: bin() converts to binary numbers, zfill makes a string of zeros
@@ -162,7 +191,7 @@ def pairing(n, i, j):
         #print('n starting state:', n)
         #print('hopping exponent', exponent)
         #print('new state:', bin_to_n(a - 2 ** i - 2 ** j, 6))
-        return a - 2 ** i - 2 ** j, np.sign(i - j) * (-1) ** exponent 
+        return a - 2 ** i - 2 ** j, (-1) ** exponent
     else:
         return None
 
@@ -196,40 +225,44 @@ def jump_TBD(n, i, j, theta, L):
         
         if n[i] == 1:
             a = n_to_bin(n)
-            exponent_i = np.sum(n[0:i])    
+            exponent_i = np.sum(n[0:i])
             #print('exponent_i', exponent_i)
             a_i =  a - 2 ** i
             #print('a_i', bin_to_n(a_i, L))
             #print('a_i', a_i)
-            phase_i = (-1) ** exponent_i * np.cos(theta)
+            #dphase_i = (-1) ** exponent_i * np.cos(theta)
+            phase_i = np.prod(2 * n[0:i] - 1) * np.cos(theta)
         
         elif n[i] == 0:
             a = n_to_bin(n)
-            exponent_i = np.sum(n[0:i])            
+            exponent_i = np.sum(n[0:i])
             #print('exponent_i', exponent_i)
             a_i =  a + 2 ** i 
             #print('a_i', bin_to_n(a_i, L))
             #print('a_i', a_i)
-            phase_i = (-1) ** exponent_i * np.sin(theta)
+            #phase_i = (-1) ** exponent_i * np.sin(theta)
+            phase_i = np.prod(2 * n[0:i] - 1) * np.sin(theta)
     
         
         if n[j] == 1:
             a = n_to_bin(n)
-            exponent_j = np.sum(n[0:j])      
+            exponent_j = np.sum(n[0:j])
             #print('exponent_j', exponent_j)
             a_j =  a - 2 ** j
             #print('a_j', bin_to_n(a_j, L))
             #print('a_j', a_j)
-            phase_j = - (-1) ** (exponent_j) * np.sin(theta)       #adding a minus in front of a_i+1 as in Topol Quantum wire paper (DOI: 10.1038/NPHYS2106)
-        
+            #phase_j = - (-1) ** (exponent_j) * np.sin(theta)       #adding a minus in front of a_i+1 as in Topol Quantum wire paper (DOI: 10.1038/NPHYS2106)
+            phase_j = - np.prod(2 * n[0:j] - 1) * np.sin(theta)
+
         elif n[j] == 0:
             a = n_to_bin(n)
-            exponent_j = np.sum(n[0:j]) 
+            exponent_j = np.sum(n[0:j])
             #print('exponent_j', exponent_j)
             a_j =  a + 2 ** j
             #print('a_j', bin_to_n(a_j, L))
             #print('a_j', a_j)
-            phase_j =  (-1) ** (exponent_j) * np.cos(theta)
+            #phase_j =  (-1) ** (exponent_j) * np.cos(theta)
+            phase_j = np.prod(2 * n[0:j] - 1) * np.cos(theta)
         else:
             return None  
         
@@ -451,8 +484,8 @@ def jump_OneEdgeSite(n, i, j, theta, L):
             exponent_i = np.sum(n[0:i])    
             #print('exponent_i', exponent_i)
             a_i =  a - 2 ** i
-            print('a_i', bin_to_n(a_i, L))
-            print('a_i', a_i)
+            #print('a_i', bin_to_n(a_i, L))
+            #print('a_i', a_i)
             phase_i = (-1) ** exponent_i * np.cos(theta)
         
         elif (i == 0) and n[i] == 0:
@@ -460,8 +493,8 @@ def jump_OneEdgeSite(n, i, j, theta, L):
             exponent_i = np.sum(n[0:i])            
             #print('exponent_i', exponent_i)
             a_i =  a + 2 ** i 
-            print('a_i', bin_to_n(a_i, L))
-            print('a_i', a_i)
+            #print('a_i', bin_to_n(a_i, L))
+            #print('a_i', a_i)
             phase_i = (-1) ** exponent_i * np.sin(theta)
     
         
@@ -470,8 +503,8 @@ def jump_OneEdgeSite(n, i, j, theta, L):
             exponent_j = np.sum(n[0:j])      
             #print('exponent_j', exponent_j)
             a_j =  a - 2 ** j
-            print('a_j', bin_to_n(a_j, L))
-            print('a_j', a_j)
+            #print('a_j', bin_to_n(a_j, L))
+            #print('a_j', a_j)
             phase_j = - (-1) ** (exponent_j) * np.sin(theta)       #adding a minus in front of a_i+1 as in Topol Quantum wire paper (DOI: 10.1038/NPHYS2106)
         
         elif (i == 0) and n[j] == 0:
@@ -479,8 +512,8 @@ def jump_OneEdgeSite(n, i, j, theta, L):
             exponent_j = np.sum(n[0:j]) 
             #print('exponent_j', exponent_j)
             a_j =  a + 2 ** j
-            print('a_j', bin_to_n(a_j, L))
-            print('a_j', a_j)
+            #print('a_j', bin_to_n(a_j, L))
+            #print('a_j', a_j)
             phase_j = (-1) ** (exponent_j) * np.cos(theta)
         else:
             return None  
@@ -581,12 +614,12 @@ class SuperOperator:
                        #print('h_j', h_j)
                        
                        # assign values to the correct location in the Hilbert space
-                       L_jump[a_i, r] += 1/4 * h_i 
-                       L_jump[a_j, r] += 1/4 * h_j 
+                       L_jump[a_i, r] += h_i  #1/4 * h_i
+                       L_jump[a_j, r] += h_j #1/4 * h_j
     
                        
                        #print('L_jump[a_i, r]', L_jump[a_i, r])
-                       #print('L_jump[a_j, r]', L_jump[a_j, r]) 
+                       #print('L_jump[a_j, r]', L_jump[a_j, r])
                        
                        
                    
@@ -620,10 +653,10 @@ class SuperOperator:
                      
                        # assign values to the correct location in the Hilbert space
                        L_jump[a_i, r] += 1/np.sqrt(2) * h_i
-                       L_jump[a_j, r] += 1/np.sqrt(2) * h_j 
-                     
-                       #print('L_jump[a_i, r]', L_jump[a_i, r])
-                       
+                       L_jump[a_j, r] += 1/np.sqrt(2) * h_j
+
+                   #np.set_printoptions(threshold=np.inf)
+                   #print('L_jump[a_i, r]', L_jump[a_i, r])
                        
                        
 
@@ -644,8 +677,8 @@ class SuperOperator:
 #            cbar.ax.tick_params(labelsize=6)
             
 # =============================================================================
-            #print('i=',i)
-            #print('L_jump=', L_jump)
+#            print('i=',i)
+#            print('L_jump=', L_jump)
             
              # building the super-operator for site i               
             L_jump_dagger = np.conj(np.transpose(L_jump))
@@ -667,7 +700,7 @@ class SuperOperator:
 #            plt.tick_params(axis='both', labelsize=6)
 #            cbar.ax.tick_params(labelsize=6)
 # =============================================================================
-            
+
             #print('L_super_i', L_super[i,:,:])
             
         #Summing over all i to get the final Super-operator
@@ -682,7 +715,7 @@ class SuperOperator:
         
         # Multiplying the super-operator with \kappa0 as in Topol by dissipartion paper (DOI: 10.1038/NPHYS2106)
         L_super_tot = kappa * np.sum(L_super, axis=0)
-        print('L_super shape:', np.shape(L_super))
+#        print('L_super shape:', np.shape(L_super))
         
         #print('L_super=', L_super_tot)
                 
@@ -793,9 +826,7 @@ class IsingMajorana:
         L = self.L
         dim = 2 ** L
         H = np.zeros((dim, dim))
-        
-        print('self.disXX=', self.disXX)
-        print('disZ=', self.disZ)
+
 
         # Boundary conditions
         if bc == 'periodic':
@@ -822,7 +853,7 @@ class IsingMajorana:
 
             # Diagonal term from onsite random field: h_i(2n_i - 1)
             for i in range(L):
-                H[r, r] -= self.disZ[i] * onsite_field(n, i)
+                H[r, r] += self.disZ[i] * onsite_field(n, i)
                 #print('i', i)
                 #print('n=', n)
                 #print('onsite_field', onsite_field(n, i))
@@ -863,7 +894,7 @@ class IsingMajorana:
                 # Pairing term
                 try:
                     b, h = pairing(n, i, j)
-                    hp = h * self.disXX[i] 
+                    hp = h * self.disXX[i]
                     #print('hp', hp)
                     H[b, r] += hp
                     H[r, b] += np.conjugate(hp)
@@ -886,7 +917,7 @@ class IsingMajorana:
                 # Hopping term
                 try:
                     b, h = hopping(n, i, j)
-                    ht = - h * self.XX2
+                    ht = h * self.XX2
                     phase = onsite_field(n, k)
                     H[b, r] += (phase * ht)
                     H[r, b] += np.conjugate(phase * ht)
@@ -897,7 +928,7 @@ class IsingMajorana:
                 # Pairing term
                 try:
                     b, h = pairing(n, i, j)
-                    hp = - h * self.XX2
+                    hp = h * self.XX2
                     phase = onsite_field(n, k)
                     H[b, r] += (phase * hp)
                     H[r, b] += np.conjugate(phase * hp)
