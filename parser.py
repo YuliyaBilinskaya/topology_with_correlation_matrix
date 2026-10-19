@@ -26,8 +26,11 @@ def parse():
     parser.add_argument('--ss', type=str, help='Calculate steady state?', choices=['True', 'False'], default='False')
     parser.add_argument('--block_diag', type=str, help='Bloack-diagonalize by parity symmetry?', choices=['True', 'False'], default='False')
     parser.add_argument('--show', help='If True the disorder averaged local information per scale is shown', default=False)
-    parser.add_argument('--t_max', '--real_t_evo', type=float, help='Time value for the real time evolution', default=50.0)
-    parser.add_argument('--dt', '--dt', type=float, help='Time step for the real time evolution', default=0.00001)
+    parser.add_argument('--t_max', '--real_t_evo', type=float, help='Time value for the real time evolution', default=1.0)
+    parser.add_argument('--integrator', type=str, choices=['euler', 'rk45'], default='rk45',
+                        help="Time integrator for the correlation-matrix evolution: 'euler' (explicit Euler, first order) "
+                             "or 'rk45' (the same Runge-Kutta scheme as LITE: 6 stages, 5th order). ")
+    parser.add_argument('--dt', '--dt', type=float, help='Time step for the real time evolution', default=0.01)
     parser.add_argument('--epsilon', type=float, help='Mixing parameter for mixed initial states', default=0.2)
 
     args, unknown = parser.parse_known_args()

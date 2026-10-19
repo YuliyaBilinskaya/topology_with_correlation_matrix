@@ -12,7 +12,8 @@ import psutil
 from datetime import datetime
 from scipy.sparse.linalg import expm
 from infoLattice import plot_info_lattice, plot_info_latt
-from functions import calc_ini_C_mk_A_mk_t0, init_corr_from_blocks, build_generalized_correlation_matrix, evolve_C_mk_A_mk_delta_t
+from functions import calc_ini_C_mk_A_mk_t0, init_corr_from_blocks, build_generalized_correlation_matrix
+from corr_integrators import make_stepper
 from infoLattice import plot_info_latt_from_corr, plot_info_lattice_from_corr
 from local_marker_func import plot_local_marker, plot_local_marker_comparison
 
@@ -39,7 +40,7 @@ show = args.show                        # If True, the disorder averaged local i
 
 t_max = args.t_max                      # Time for the real time evolution
 dt = args.dt                            # Time step for the real time evolution
-
+integrator = args.integrator            # 'euler' or 'rk45'
 clean = args.clean                      # If True, no disorder is present in the chain. If False, disorder introduced to Z and XX
 
 theta = args.dissipation_th             # Dissipation parameter theta for kappa0 = kappa*cos(theta) for a TBD bath type
@@ -85,25 +86,21 @@ C_mk_ini, A_mk_dagger_ini = init_corr_from_blocks(L=L, initial_state_type=initia
 
 #%%
 
-time_steps = int(t_max/dt)   # number of timesteps
+time_steps = int(round(t_max / dt))      # number of timesteps
+assert abs(t_max / dt - time_steps) < 1e-9, "t_max must be an integer multiple of dt"
 
-save_stride = 1  # save data only for every 1000th step
-output_file = f"opdm_t_corr_diss={gamma:g}_J={J:g}_L={L}_init={initial_state_type}.h5"
+save_stride = 10  # save data only for every 'th step
+output_file = f"opdm_t_corr_diss={gamma:g}_J={J:g}_L={L}_init={initial_state_type}_dt={dt:g}.h5"
 filters = tb.Filters(complevel=5, complib="blosc:zstd")
 
-n_saved = (time_steps + save_stride - 1) // save_stride
+n_saved = time_steps // save_stride + 1
 
-
-# ---- TEMP: save only at LITE times (delete blocks A and B to revert) ----
-_lite_set = {round(float(x), 5) for x in np.load(os.path.join(os.path.dirname(os.path.abspath(__file__)), "loaded_times.npy"))}
-save_stride = 1   # the stride test below then passes at every step; block B filters instead
-n_saved = sum(round(c * dt, 5) in _lite_set for c in range(time_steps))   # size the arrays correctly
-print(f"LITE times: {len(_lite_set)} unique after rounding, {n_saved} fall on this time grid")
-# ---- END TEMP A ----
 
 info_latt_t = np.zeros((n_saved, L), dtype=np.float32)
 tot_info_t = np.zeros(n_saved, dtype=np.float32)
-times_saved = np.zeros(n_saved, dtype=np.float32)
+times_saved = np.zeros(n_saved, dtype=np.float64)
+
+step = make_stepper(integrator, gamma, J, h)
 
 C_mk_t = C_mk_ini
 A_mk_dagger_t = A_mk_dagger_ini
@@ -120,26 +117,17 @@ with tb.open_file(output_file, mode="w") as h5:
 
     save_idx = 0
 
-    for c in range(time_steps):
+    for c in range(time_steps + 1):
         t = c * dt
 
         if c == 0:
             C_mk_t = C_mk_ini
             A_mk_dagger_t = A_mk_dagger_ini
         else:
-            C_mk_t, A_mk_dagger_t = evolve_C_mk_A_mk_delta_t(
-                C_mk_t, A_mk_dagger_t, delta_t=dt, gamma=gamma, J=J, h=h
-            )
+            C_mk_t, A_mk_dagger_t = step(C_mk_t, A_mk_dagger_t, dt)
 
 
         if c % save_stride == 0:
-
-            # ---- TEMP B ----
-            if round(t, 5) not in _lite_set:
-                continue
-            # ---- END TEMP B ----
-
-
             generalized_corr_matrix = build_generalized_correlation_matrix(C_mk_t, A_mk_dagger_t)
             info_latt = infoLattice.calc_info_from_corr_matr(generalized_corr_matrix)
             current_info_per_scale = infoLattice.calc_info_per_scale(info_latt, bc=BC)
